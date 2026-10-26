@@ -81,15 +81,16 @@ await page.screenshot({ path: path.join(out, "desktop-play.png") });
 
 const ids = await page.evaluate(() => window.__MICROGAMES__.games.map((g) => g.id));
 console.log("games:", ids.join(", "));
-if (ids.length !== 11) errors.push(`expected 11 games, got ${ids.length}`);
+if (ids.length !== 30) errors.push(`expected 30 games, got ${ids.length}`);
 if (ids.includes("maze") || ids.includes("worldmap")) errors.push("removed games are still present");
 
 const selection = await page.evaluate(() => {
   const d = window.__MICROGAMES__;
   d.seenGames = new Set();
   const runs = [];
+  const runLimit = 2 + Math.ceil(Math.max(0, d.games.length - 3) / 2);
 
-  for (let r = 0; r < 6; r += 1) {
+  for (let r = 0; r < runLimit; r += 1) {
     const before = new Set(d.seenGames);
     d.startRun();
     const runIds = d.run.map((game) => game.id);
@@ -106,30 +107,30 @@ const selection = await page.evaluate(() => {
   return { runs, seen: [...d.seenGames].sort(), total: d.games.length };
 });
 console.log("selection:", JSON.stringify(selection));
-if (selection.seen.length !== selection.total) errors.push("not all games are marked as seen after six runs");
+if (selection.seen.length !== selection.total) errors.push("not all games are marked as seen after discovery runs");
 selection.runs.forEach((run, index) => {
   if (run.ids.length !== 3) errors.push(`run ${index + 1}: expected 3 games`);
   if (new Set(run.ids).size !== run.ids.length) errors.push(`run ${index + 1}: duplicate game`);
-  const expectedFresh = index === 0 ? 3 : Math.min(2, selection.total - run.before);
+  const expectedFresh = index === 0 ? Math.min(3, selection.total) : Math.min(2, selection.total - run.before);
   if (run.fresh.length !== expectedFresh) {
     errors.push(`run ${index + 1}: expected ${expectedFresh} new games, got ${run.fresh.length}`);
   }
 });
-if (selection.runs[5]?.fresh.length !== 0) errors.push("run after full discovery should use known games");
+if (selection.runs[selection.runs.length - 1]?.fresh.length !== 0) {
+  errors.push("run after full discovery should use known games");
+}
 
-const actions = {
-  race: async () => page.keyboard.press("ArrowLeft"),
-  jump: async () => canvas.click({ position: { x: box.width / 2, y: box.height / 2 } }),
-  tetris: async () => page.keyboard.press("ArrowLeft"),
-  ski: async () => page.keyboard.press("ArrowRight"),
-  whack: async () => canvas.click({ position: { x: 240, y: 300 } }),
-  catch: async () => page.keyboard.press("ArrowLeft"),
-  penalty: async () => canvas.click({ position: { x: 240, y: 320 } }),
-  stacker: async () => canvas.click({ position: { x: 240, y: 300 } }),
-  fishing: async () => canvas.click({ position: { x: box.width / 2, y: box.height / 2 } }),
-  ladder: async () => page.keyboard.press("ArrowLeft"),
-  balloon: async () => canvas.click({ position: { x: box.width / 2, y: box.height / 2 } }),
-};
+const inputById = await page.evaluate(() =>
+  Object.fromEntries(window.__MICROGAMES__.games.map((game) => [game.id, game.input])),
+);
+const actions = Object.fromEntries(
+  ids.map((id) => [
+    id,
+    inputById[id] === "sides"
+      ? async () => page.keyboard.press("ArrowLeft")
+      : async () => canvas.click({ position: { x: box.width / 2, y: box.height / 2 } }),
+  ]),
+);
 
 const results = {};
 for (let i = 0; i < ids.length; i += 1) {
