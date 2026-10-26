@@ -5,6 +5,7 @@ import { getGames, validateGames } from "../games/index.js";
 import { initAssets } from "./assets.js";
 import { Input } from "./input.js";
 import { H, W } from "./gfx.js";
+import { pickRun } from "./run-order.js";
 import { clamp, pick, rand, randInt } from "./utils.js";
 
 export class Director {
@@ -17,6 +18,9 @@ export class Director {
     this.t = 0;
     this.lastTime = performance.now();
     this.games = [];
+    this.run = [];
+    this.seenGames = new Set();
+    this.lives = CONFIG.maxLives;
     this.index = 0;
     this.gameDef = null;
     this.instance = null;
@@ -102,7 +106,10 @@ export class Director {
     ctx.globalAlpha = 1;
 
     if (this.state === "attract") {
-      drawAttract(ctx, this.t);
+      drawAttract(ctx, this.t, {
+        gameCount: this.games.length,
+        maxLives: CONFIG.maxLives,
+      });
       return;
     }
 
@@ -110,8 +117,10 @@ export class Director {
       drawIntro(ctx, this.t, {
         game: this.gameDef,
         index: this.index,
-        count: this.games.length,
+        count: this.run.length,
         duration: CONFIG.introTime,
+        lives: this.lives,
+        maxLives: CONFIG.maxLives,
       });
       return;
     }
@@ -126,6 +135,8 @@ export class Director {
         time: clamp(this.timeLeft, 0, this.gameDef?.duration ?? 1),
         duration: this.gameDef?.duration ?? 1,
         goTime: this.playElapsed,
+        lives: this.lives,
+        maxLives: CONFIG.maxLives,
       });
       return;
     }
@@ -145,12 +156,14 @@ export class Director {
         game: this.gameDef,
         reason: this.reason,
         duration: CONFIG.resultTime,
+        lives: this.lives,
+        maxLives: CONFIG.maxLives,
       });
       return;
     }
 
     if (this.state === "finale") {
-      drawFinale(ctx, this.t);
+      drawFinale(ctx, this.t, { maxLives: CONFIG.maxLives });
     }
   }
 
@@ -224,6 +237,11 @@ export class Director {
   startRun() {
     this.audio.unlock();
     this.audio.jingleStart();
+    this.lives = CONFIG.maxLives;
+    this.run = pickRun(this.games, this.seenGames, {
+      size: CONFIG.maxLives,
+      newGames: CONFIG.newGamesPerRun,
+    });
     this.index = 0;
     this.enterIntro();
   }
@@ -232,14 +250,16 @@ export class Director {
     this.state = "intro";
     this.t = 0;
     this.instance = null;
-    this.gameDef = this.games[this.index];
+    this.gameDef = this.run[this.index];
 
     if (!this.gameDef) {
       this.enterFinale();
       return;
     }
 
-    const number = `${String(this.index + 1).padStart(2, "0")}/${String(this.games.length).padStart(2, "0")}`;
+    this.seenGames.add(this.gameDef.id);
+
+    const number = `${String(this.index + 1).padStart(2, "0")}/${String(this.run.length).padStart(2, "0")}`;
     this.setDomMode("intro");
     this.setTapHint("ПРИГОТОВЬСЯ");
     this.setLegend(`${number} · ${this.gameDef.title} — ${this.gameDef.hint}`);
@@ -260,7 +280,7 @@ export class Director {
       width: W,
       height: H,
       index: this.index,
-      count: this.games.length,
+      count: this.run.length,
       lose: (message) => this.lose(message),
       audio: this.audio,
       rand,
@@ -291,6 +311,7 @@ export class Director {
   lose(reason) {
     if (this.state !== "play") return;
 
+    this.lives = Math.max(0, this.lives - 1);
     this.state = "result";
     this.t = 0;
     this.reason = reason || "Так было запланировано с самого начала.";
@@ -304,7 +325,7 @@ export class Director {
 
   nextGame() {
     this.index += 1;
-    if (this.index >= this.games.length) {
+    if (this.lives <= 0 || this.index >= this.run.length) {
       this.enterFinale();
       return;
     }
@@ -319,7 +340,7 @@ export class Director {
     this.audio.jingleEnd();
     this.setDomMode("finale");
     this.setTapHint("ЕЩЁ РАЗ");
-    this.setLegend("СМЕНА ОКОНЧЕНА · 10 ИГР · 0 ПОБЕД");
+    this.setLegend(`СМЕНА ОКОНЧЕНА · ${CONFIG.maxLives} ЖИЗНИ · 0 ПОБЕД`);
   }
 
   setDomMode(mode) {

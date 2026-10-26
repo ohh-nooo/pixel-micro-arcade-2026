@@ -23,7 +23,7 @@ function flashIn(ctx, t, length = 0.16) {
   return true;
 }
 
-export function drawAttract(ctx, t) {
+export function drawAttract(ctx, t, { gameCount = 8, maxLives = 3 } = {}) {
   fill(ctx, 0, 0, W, H, "#1a1430");
 
   const scroll = (t * 12) % 16;
@@ -77,7 +77,7 @@ export function drawAttract(ctx, t) {
   textCenter(ctx, "НАЧАТЬ СМЕНУ", W / 2, 254, { size: 11, color: C.paper });
   ctx.restore();
 
-  textCenter(ctx, "10 ИГР  ·  0 ПОБЕД  ·  NO-WIN EDITION", W / 2, 299, {
+  textCenter(ctx, `${gameCount} ИГР  ·  ${maxLives} ЖИЗНИ  ·  NO-WIN EDITION`, W / 2, 299, {
     size: 10,
     color: "#bcafd8",
   });
@@ -105,7 +105,7 @@ function circleTapIcon(ctx, x, y) {
   fill(ctx, x - 2, y - 2, 4, 4, C.amber);
 }
 
-export function drawIntro(ctx, t, { game, index, count, duration }) {
+export function drawIntro(ctx, t, { game, index, count, duration, lives, maxLives }) {
   fill(ctx, 0, 0, W, H, "#241d3d");
   stripes(ctx, "rgba(255,255,255,0.035)", 12);
   fill(ctx, 0, 0, W, 5, "#0d0a17");
@@ -165,9 +165,11 @@ export function drawIntro(ctx, t, { game, index, count, duration }) {
   if (pulse(t, 10) > 0.55) {
     textCenter(ctx, "ПОЕХАЛИ...", W / 2, 274, { size: 10, color: "#a395c8" });
   }
+
+  drawLives(ctx, { lives, maxLives, y: 307 });
 }
 
-export function drawPlayOverlay(ctx, { time, duration, goTime }) {
+export function drawPlayOverlay(ctx, { time, duration, goTime, lives, maxLives }) {
   const remaining = clamp(time / duration, 0, 1);
   const barW = Math.round(W * remaining);
   const critical = time < 1.5;
@@ -187,9 +189,11 @@ export function drawPlayOverlay(ctx, { time, duration, goTime }) {
     textCenter(ctx, "GO!", W / 2, 132, { size: 34, color: C.amber, shadowColor: "#0b0814" });
     ctx.restore();
   }
+
+  drawLives(ctx, { lives, maxLives, y: 307 });
 }
 
-export function drawResult(ctx, t, { game, reason, duration = 2.35 }) {
+export function drawResult(ctx, t, { game, reason, duration = 2.35, lives, maxLives }) {
   fill(ctx, 0, 0, W, H, "rgba(9,5,16,0.76)");
   stripes(ctx, "rgba(255,85,119,0.05)", 14);
   fill(ctx, 0, 0, W, 5, "#0d0a17");
@@ -241,10 +245,11 @@ export function drawResult(ctx, t, { game, reason, duration = 2.35 }) {
   fill(ctx, 31, 275, 178, 3, "#433560");
   fill(ctx, 31, 275, Math.round(178 * progress), 3, C.pink);
 
-  textCenter(ctx, "ЭТО БЫЛО ПРЕДСКАЗУЕМО", W / 2, 287, { size: 10, color: "#b4a7d4" });
+  textCenter(ctx, `ОСТАЛОСЬ ЖИЗНЕЙ: ${lives}`, W / 2, 287, { size: 10, color: "#b4a7d4" });
+  drawLives(ctx, { lives, maxLives, y: 307 });
 }
 
-export function drawFinale(ctx, t) {
+export function drawFinale(ctx, t, { maxLives = 3 } = {}) {
   fill(ctx, 0, 0, W, H, "#1b1329");
   stripes(ctx, "rgba(255,213,71,0.03)", 16);
   grid(ctx, 0, 0, W, H, 24, "rgba(255,255,255,0.025)");
@@ -264,8 +269,8 @@ export function drawFinale(ctx, t) {
   textCenter(ctx, "ОКОНЧЕНА", W / 2, 90, { size: 38, color: C.amber });
 
   panel(ctx, 30, 138, 180, 82, "#251c3d");
-  textCenter(ctx, "0 / 10", W / 2, 146, { size: 36, color: C.pink });
-  textCenter(ctx, "ПОБЕД", W / 2, 188, { size: 12, color: "#d0c5e8" });
+  textCenter(ctx, `0 / ${maxLives}`, W / 2, 146, { size: 36, color: C.pink });
+  textCenter(ctx, "ЖИЗНЕЙ ОСТАЛОСЬ", W / 2, 188, { size: 12, color: "#d0c5e8" });
 
   ctx.save();
   ctx.translate(190, 150);
@@ -277,7 +282,7 @@ export function drawFinale(ctx, t) {
 
   drawSpriteCentered(ctx, "skull", W / 2, 242, { scale: 2.1 });
 
-  paragraph(ctx, "Все микрогигры пройдены. Ни одна не выиграна. Это мир, в котором победа не предусмотрена.", W / 2, 260, 194, {
+  paragraph(ctx, "Все жизни закончились. Ни одна микрогигра не выиграна. Это мир, в котором победа не предусмотрена.", W / 2, 260, 194, {
     size: 10,
     weight: 600,
     align: "center",
@@ -291,5 +296,25 @@ export function drawFinale(ctx, t) {
     ctx.globalAlpha = a;
     textCenter(ctx, "ТАП / ПРОБЕЛ — ЕЩЁ РАЗ", W / 2, 303, { size: 11, color: C.amber });
     ctx.restore();
+  }
+}
+
+function drawHeart(ctx, x, y, color) {
+  fill(ctx, x + 1, y, 2, 1, color);
+  fill(ctx, x + 4, y, 2, 1, color);
+  fill(ctx, x, y + 1, 7, 2, color);
+  fill(ctx, x + 1, y + 3, 5, 1, color);
+  fill(ctx, x + 2, y + 4, 3, 1, color);
+  fill(ctx, x + 3, y + 5, 1, 1, color);
+}
+
+function drawLives(ctx, { lives = 0, maxLives = 3, x = W - 8, y = 307 } = {}) {
+  const step = 9;
+  const width = maxLives * step - 2;
+  const left = x - width;
+
+  fill(ctx, left - 3, y - 2, width + 6, 10, "rgba(13,10,23,0.68)");
+  for (let i = 0; i < maxLives; i += 1) {
+    drawHeart(ctx, left + i * step, y, i < lives ? C.pink : "#3a315e");
   }
 }

@@ -77,32 +77,71 @@ await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } });
 await page.waitForTimeout(450);
 await page.screenshot({ path: path.join(out, "desktop-intro.png") });
 await page.waitForTimeout(1300);
-await page.screenshot({ path: path.join(out, "desktop-race-play.png") });
+await page.screenshot({ path: path.join(out, "desktop-play.png") });
 
 const ids = await page.evaluate(() => window.__MICROGAMES__.games.map((g) => g.id));
 console.log("games:", ids.join(", "));
+if (ids.length !== 11) errors.push(`expected 11 games, got ${ids.length}`);
+if (ids.includes("maze") || ids.includes("worldmap")) errors.push("removed games are still present");
+
+const selection = await page.evaluate(() => {
+  const d = window.__MICROGAMES__;
+  d.seenGames = new Set();
+  const runs = [];
+
+  for (let r = 0; r < 6; r += 1) {
+    const before = new Set(d.seenGames);
+    d.startRun();
+    const runIds = d.run.map((game) => game.id);
+    const fresh = runIds.filter((id) => !before.has(id));
+
+    for (let i = 0; i < d.run.length; i += 1) {
+      d.index = i;
+      d.enterIntro();
+    }
+
+    runs.push({ ids: runIds, fresh, before: before.size, after: d.seenGames.size });
+  }
+
+  return { runs, seen: [...d.seenGames].sort(), total: d.games.length };
+});
+console.log("selection:", JSON.stringify(selection));
+if (selection.seen.length !== selection.total) errors.push("not all games are marked as seen after six runs");
+selection.runs.forEach((run, index) => {
+  if (run.ids.length !== 3) errors.push(`run ${index + 1}: expected 3 games`);
+  if (new Set(run.ids).size !== run.ids.length) errors.push(`run ${index + 1}: duplicate game`);
+  const expectedFresh = index === 0 ? 3 : Math.min(2, selection.total - run.before);
+  if (run.fresh.length !== expectedFresh) {
+    errors.push(`run ${index + 1}: expected ${expectedFresh} new games, got ${run.fresh.length}`);
+  }
+});
+if (selection.runs[5]?.fresh.length !== 0) errors.push("run after full discovery should use known games");
 
 const actions = {
   race: async () => page.keyboard.press("ArrowLeft"),
   jump: async () => canvas.click({ position: { x: box.width / 2, y: box.height / 2 } }),
   tetris: async () => page.keyboard.press("ArrowLeft"),
-  worldmap: async () => canvas.click({ position: { x: 300, y: 220 } }),
-  maze: async () => page.keyboard.press("ArrowLeft"),
   ski: async () => page.keyboard.press("ArrowRight"),
   whack: async () => canvas.click({ position: { x: 240, y: 300 } }),
   catch: async () => page.keyboard.press("ArrowLeft"),
   penalty: async () => canvas.click({ position: { x: 240, y: 320 } }),
   stacker: async () => canvas.click({ position: { x: 240, y: 300 } }),
+  fishing: async () => canvas.click({ position: { x: box.width / 2, y: box.height / 2 } }),
+  ladder: async () => page.keyboard.press("ArrowLeft"),
+  balloon: async () => canvas.click({ position: { x: box.width / 2, y: box.height / 2 } }),
 };
 
 const results = {};
 for (let i = 0; i < ids.length; i += 1) {
   const id = ids[i];
-  await page.evaluate((index) => {
+  await page.evaluate((gameId) => {
     const d = window.__MICROGAMES__;
-    d.index = index;
+    const game = d.games.find((item) => item.id === gameId);
+    d.run = [game];
+    d.lives = 3;
+    d.index = 0;
     d.enterIntro();
-  }, i);
+  }, id);
   await page.waitForTimeout(80);
   await page.evaluate(() => window.__MICROGAMES__.enterPlay());
   await page.waitForTimeout(850);
@@ -131,29 +170,55 @@ for (let i = 0; i < ids.length; i += 1) {
   }));
   results[id] = { ...result, colors: pixels, elapsed };
   console.log(id, JSON.stringify(results[id]));
-  if (i === 0 || i === 3 || i === 9) {
+  if (i === 0 || i === 3 || i === ids.length - 1) {
     await page.screenshot({ path: path.join(out, `result-${id}.png`) });
   }
 }
 
 await page.evaluate(() => {
   const d = window.__MICROGAMES__;
-  d.index = 0;
-  d.enterIntro();
+  d.startRun();
+  d.enterPlay();
 });
-await page.waitForTimeout(80);
-await page.evaluate(() => window.__MICROGAMES__.enterPlay());
 try {
-  await page.waitForFunction(() => window.__MICROGAMES__.state === "result", null, { timeout: 6500 });
+  await page.waitForFunction(() => window.__MICROGAMES__.state === "result", null, { timeout: 7000 });
 } catch {
   errors.push("skip-test: never reached result");
 }
 await page.waitForTimeout(700);
 await page.locator("#screen").click({ position: { x: box.width / 2, y: box.height / 2 } });
 await page.waitForTimeout(200);
-const skip = await page.evaluate(() => ({ state: window.__MICROGAMES__.state, index: window.__MICROGAMES__.index }));
+const skip = await page.evaluate(() => ({
+  state: window.__MICROGAMES__.state,
+  index: window.__MICROGAMES__.index,
+  lives: window.__MICROGAMES__.lives,
+}));
 console.log("result skip ->", JSON.stringify(skip));
-if (skip.state !== "intro" || skip.index !== 1) errors.push("result skip did not advance to the next intro");
+if (skip.state !== "intro" || skip.index !== 1 || skip.lives !== 2) {
+  errors.push("result skip did not advance to the next intro with one life lost");
+}
+
+const lifeTest = await page.evaluate(() => {
+  const d = window.__MICROGAMES__;
+  d.startRun();
+  const steps = [];
+
+  for (let i = 0; i < 3; i += 1) {
+    d.enterPlay();
+    d.lose("test");
+    steps.push({ lives: d.lives, index: d.index, state: d.state });
+    d.nextGame();
+  }
+
+  return { steps, state: d.state, lives: d.lives };
+});
+console.log("lives:", JSON.stringify(lifeTest));
+if (lifeTest.steps.map((step) => step.lives).join(",") !== "2,1,0") {
+  errors.push("lives did not count down 3 -> 2 -> 1 -> 0");
+}
+if (lifeTest.state !== "finale" || lifeTest.lives !== 0) {
+  errors.push("run did not end after three lost lives");
+}
 
 await page.evaluate(() => window.__MICROGAMES__.enterFinale());
 await page.waitForTimeout(1200);
@@ -170,11 +235,18 @@ const mobile = await newPage({ width: 390, height: 844 }, { hasTouch: true, isMo
 page = mobile.page;
 const mobileMetrics = await metrics(page, "mobile-metrics");
 await page.screenshot({ path: path.join(out, "mobile-attract.png") });
-const mcanvas = page.locator("#screen");
-const mbox = await mcanvas.boundingBox();
-await page.touchscreen.tap(mbox.x + mbox.width / 2, mbox.y + mbox.height / 2);
-await page.waitForTimeout(1750);
-await page.screenshot({ path: path.join(out, "mobile-race-play.png") });
+await page.evaluate(() => {
+  const d = window.__MICROGAMES__;
+  const game = d.games.find((item) => item.input === "sides");
+  d.run = [game];
+  d.lives = 3;
+  d.index = 0;
+  d.enterIntro();
+});
+await page.waitForTimeout(80);
+await page.evaluate(() => window.__MICROGAMES__.enterPlay());
+await page.waitForTimeout(1000);
+await page.screenshot({ path: path.join(out, "mobile-play.png") });
 const padVisible = await page.evaluate(() => getComputedStyle(document.querySelector(".device__controls")).display !== "none");
 console.log("mobile mode/pad visible:", await page.evaluate(() => document.querySelector("#device").dataset.mode), padVisible);
 if (!padVisible) errors.push("mobile pads are not visible during play");
@@ -185,13 +257,16 @@ const mobileTap = await newPage({ width: 390, height: 844 }, { hasTouch: true, i
 page = mobileTap.page;
 await page.evaluate(() => {
   const d = window.__MICROGAMES__;
-  d.index = 3;
+  const game = d.games.find((item) => item.id === "penalty");
+  d.run = [game];
+  d.lives = 3;
+  d.index = 0;
   d.enterIntro();
 });
 await page.waitForTimeout(80);
 await page.evaluate(() => window.__MICROGAMES__.enterPlay());
 await page.waitForTimeout(500);
-await page.screenshot({ path: path.join(out, "mobile-worldmap-play.png") });
+await page.screenshot({ path: path.join(out, "mobile-tap-play.png") });
 const tapBox = await page.locator("#screen").boundingBox();
 await page.touchscreen.tap(tapBox.x + tapBox.width * 0.7, tapBox.y + tapBox.height * 0.4);
 try {
@@ -199,7 +274,7 @@ try {
 } catch {
   errors.push("mobile tap: never reached result");
 }
-await page.screenshot({ path: path.join(out, "mobile-worldmap-result.png") });
+await page.screenshot({ path: path.join(out, "mobile-tap-result.png") });
 const tapResult = await page.evaluate(() => ({
   state: window.__MICROGAMES__.state,
   reason: window.__MICROGAMES__.reason,
@@ -215,9 +290,12 @@ await page.waitForTimeout(250);
 const restart = await page.evaluate(() => ({
   state: window.__MICROGAMES__.state,
   index: window.__MICROGAMES__.index,
+  lives: window.__MICROGAMES__.lives,
 }));
 console.log("finale restart:", JSON.stringify(restart));
-if (restart.state !== "intro" || restart.index !== 0) errors.push("finale tap did not restart the run");
+if (restart.state !== "intro" || restart.index !== 0 || restart.lives !== 3) {
+  errors.push("finale tap did not restart the run with three lives");
+}
 await mobileTap.context.close();
 
 const allResults = Object.values(results);
