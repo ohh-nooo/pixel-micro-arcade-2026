@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#17132b" />
+    <meta name="description" content="NENORMOVA RETRO GAMER NASRAL 2026 — сборник микрогигр, в которых невозможно победить." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>NENORMOVA RETRO GAMER NASRAL 2026</title>
+  </head>
+  <body>
+    <main class="stage">
+      <section class="device" id="device" data-mode="menu">
+        <div class="device__top">
+          <span class="device__brand">NENORMOVA RETRO GAMER NASRAL 2026</span>
+          <div class="device__top-right">
+            <button class="sound" type="button" id="sound-btn" aria-label="Звук">
+              <span id="sound-label">SFX</span>
+            </button>
+            <span class="device__led" id="led" aria-hidden="true"></span>
+          </div>
+        </div>
+
+        <div class="device__screen-wrap">
+          <canvas id="screen" width="240" height="320" aria-label="Экран микрогигр" tabindex="0"></canvas>
+          <div class="device__glass" aria-hidden="true"></div>
+        </div>
+
+        <div class="device__controls">
+          <button class="pad" type="button" data-dir="left" aria-label="Влево">
+            <span class="pad__arrow">&#9664;</span>
+            <span class="pad__key">A</span>
+          </button>
+
+          <div class="device__center">
+            <span class="device__model">NRG-26</span>
+          </div>
+
+          <button class="pad" type="button" data-dir="right" aria-label="Вправо">
+            <span class="pad__arrow">&#9654;</span>
+            <span class="pad__key">D</span>
+          </button>
+        </div>
+
+        <button class="tap-hint" type="button" id="tap-hint">
+          <span class="tap-hint__icon">+</span>
+          <span id="tap-hint-text">ТАПНИ ЭКРАН</span>
+        </button>
+
+        <div class="device__serial">
+          <span>MODEL NRG-26</span>
+          <span>NASRAL EDITION</span>
+        </div>
+      </section>
+
+      <aside class="legend" id="legend">
+        <div class="legend__stamp">2026</div>
+        <h1 class="legend__title">КАК ИГРАТЬ</h1>
+        <div class="legend__rows">
+          <div class="legend__row"><kbd>&larr;</kbd><kbd>&rarr;</kbd><span>влево / вправо</span></div>
+          <div class="legend__row"><kbd class="kbd--wide">ПРОБЕЛ</kbd><span>нажать / тап</span></div>
+          <div class="legend__row"><kbd class="kbd--wide">КЛИК</kbd><span>по экрану</span></div>
+          <div class="legend__row"><kbd>M</kbd><span>звук</span></div>
+        </div>
+        <div class="legend__mode" id="legend-mode">МИКРОИГРЫ ЖДУТ</div>
+        <p class="legend__note">Победить нельзя.<br />Это не баг, это дизайн.</p>
+        <div class="legend__footer">10 игр &middot; 0 побед</div>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
