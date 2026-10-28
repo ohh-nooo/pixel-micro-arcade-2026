@@ -37,7 +37,7 @@ export function drawAttract(ctx, t, { gameCount = 8, maxLives = 3 } = {}) {
     sparkle(ctx, x, y, 1, i % 3 === 0 ? "rgba(255,212,71,0.45)" : "rgba(255,255,255,0.18)");
   }
 
-  const logoLines = ["NENORMOVA", "RETRO GAMER", "NASRAL 2026"];
+  const logoLines = ["PIXEL", "MICRO ARCADE", "2026"];
   const logoSize = Math.min(32, ...logoLines.map((line) => fitSize(ctx, line, 218, 32)));
   logoLines.forEach((line, i) => {
     textCenter(ctx, line, W / 2, 26 + i * 36, {

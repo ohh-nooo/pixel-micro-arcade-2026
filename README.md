@@ -1,6 +1,6 @@
-# NENORMOVA RETRO GAMER NASRAL 2026
+# PIXEL MICRO ARCADE 2026
 
-**Демо:** https://ohh-nooo.github.io/nenormova-retro-gamer-nasral-2026/
+**Демо:** https://ohh-nooo.github.io/pixel-micro-arcade-2026/
 
 Сборник микрогигр в духе WarioWare для браузера. Вертикальный экран, пиксельная графика, GBA-корпус. Главная особенность: **победить нельзя ни в одной игре**. Это часть дизайна, а не баг.
 

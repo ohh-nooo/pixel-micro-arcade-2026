@@ -1,8 +1,8 @@
 {
-  "name": "nenormova-retro-gamer-nasral-2026",
+  "name": "pixel-micro-arcade-2026",
   "private": true,
   "version": "1.0.0",
-  "description": "NENORMOVA RETRO GAMER NASRAL 2026 — сборник микрогигр, в которых нельзя победить.",
+  "description": "PIXEL MICRO ARCADE 2026 — сборник микрогигр, в которых нельзя победить.",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
